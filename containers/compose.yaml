@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - odoo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  odoo:
+    build:
+      context: ..
+      dockerfile: containers/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      USER: ${POSTGRES_USER}
+      PASSWORD: ${POSTGRES_PASSWORD}
+      ODOO_RC: /etc/odoo/odoo.conf
+    command: >
+      odoo
+      -c /etc/odoo/odoo.conf
+      --db_host=db --db_user=${POSTGRES_USER} --db_password=${POSTGRES_PASSWORD}
+      --limit-time-cpu=120 --limit-time-real=240
+      --log-level=info
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo_filestore:/var/lib/odoo
+      - ./config/odoo.conf:/etc/odoo/odoo.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import socket,sys; s=socket.socket(); s.settimeout(2); s.connect((\"127.0.0.1\",8069)); s.close()'"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+volumes:
+  odoo_pgdata:
+    name: odoo_pgdata
+  odoo_filestore:
+    name: odoo_filestore

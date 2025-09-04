@@ -1,0 +1,31 @@
+groups:
+  ops:
+    tasks:
+      start:
+        help: Start stack with Sugar
+        run: |
+          ENV=${ENV:-dev} sugar compose up -d --profile ${ENV}
+      stop:
+        help: Stop stack with Sugar
+        run: |
+          ENV=${ENV:-dev} sugar compose down --profile ${ENV}
+      backup:
+        help: Backup DB and filestore
+        run: |
+          bash scripts/backup.sh
+      restore:
+        help: Restore DB and filestore
+        args:
+          db:
+            help: Path to db dump (.sql.gz)
+            required: true
+          fs:
+            help: Path to filestore tarball (.tar.gz)
+            required: true
+        run: |
+          bash scripts/restore.sh {{ args.db }} {{ args.fs }}
+
+scheduler:
+  daily-backup:
+    task: ops.backup
+    schedule: "0 3 * * *"

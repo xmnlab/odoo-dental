@@ -1,0 +1,57 @@
+name: odoo-stack-ci
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  up-down:
+    runs-on: ubuntu-latest
+    env:
+      ENV: ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python tooling (pipx) and Sugar/Makim
+        run: |
+          python3 -m pip install --upgrade pip pipx
+          pipx install containers-sugar
+          pipx install makim
+
+      - name: Docker info
+        run: docker version && docker compose version
+
+      - name: Build images
+        run: sugar build --profile ci
+
+      - name: Start stack
+        run: sugar compose up -d --profile ci
+
+      - name: Wait for healthchecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose="docker compose -f compose/compose.yaml --env-file .env.ci"
+          for svc in db odoo; do
+            id="$($compose ps -q $svc)"
+            echo "Waiting for $svc ($id) to be healthy..."
+            for i in {1..60}; do
+              status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$id")"
+              if [ "$status" = "healthy" ]; then
+                echo "$svc is healthy."
+                break
+              fi
+              sleep 5
+            done
+            test "$status" = "healthy"
+          done
+          # Basic HTTP check (DB manager page or web)
+          curl -sSf http://localhost:8069/ >/dev/null
+
+      - name: Show ps
+        run: docker compose -f compose/compose.yaml --env-file .env.ci ps
+
+      - name: Stop stack
+        if: always()
+        run: sugar compose down -v --profile ci

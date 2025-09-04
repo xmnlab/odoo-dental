@@ -1,0 +1,10 @@
+name: odoo-dental
+channels:
+  - nodefaults
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - pip:
+    - makim
+    - containers-sugar

@@ -1,0 +1,31 @@
+backend: compose
+defaults:
+  profile: ${{ env.ENV or "dev" }}
+profiles:
+  dev:
+    project-name: odoo-dental
+    config-path:
+      - containers/compose.yaml
+    env-file: .envs/.env.dev
+    services:
+      available:
+        - name: db
+        - name: odoo
+  prod:
+    project-name: odoo-dental
+    config-path:
+      - containers/compose.yaml
+    env-file: .envs/.env
+    services:
+      available:
+        - name: db
+        - name: odoo
+  ci:
+    project-name: odoo-dental
+    config-path:
+      - containers/compose.yaml
+    env-file: .envs/.env.ci
+    services:
+      available:
+        - name: db
+        - name: odoo
