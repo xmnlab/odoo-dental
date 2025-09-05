@@ -1,10 +1,11 @@
-name: odoo-dental
+name: odoonto
 channels:
   - nodefaults
   - conda-forge
 dependencies:
   - python
   - pip
+  - poetry
   - pip:
-    - makim
-    - containers-sugar
+      - makim
+      - containers-sugar

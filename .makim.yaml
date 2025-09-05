@@ -1,14 +1,31 @@
+backend: bash
+env-file: .envs/.env
+
 groups:
+  db:
+    help: "Tasks about database"
+    tasks:
+      init:
+        help: Initialize the database
+        args:
+          langs:
+            help: Set default languages
+            type: string
+            default: "es_ES,pt_BR,en_US"
+        run: |
+          sugar compose exec --service odoo \
+            --cmd "odoo --db_host=db --db_user=${POSTGRES_USER} --db_password=${POSTGRES_PASSWORD} -d ${POSTGRES_DB} -i base --without-demo=all --load-language=${{ args.langs }} --stop-after-init"
+
   ops:
     tasks:
       start:
         help: Start stack with Sugar
         run: |
-          ENV=${ENV:-dev} sugar compose up -d --profile ${ENV}
+          sugar compose up -d
       stop:
         help: Stop stack with Sugar
         run: |
-          ENV=${ENV:-dev} sugar compose down --profile ${ENV}
+          sugar compose down
       backup:
         help: Backup DB and filestore
         run: |
@@ -19,11 +36,64 @@ groups:
           db:
             help: Path to db dump (.sql.gz)
             required: true
+            type: string
           fs:
             help: Path to filestore tarball (.tar.gz)
             required: true
+            type: string
         run: |
-          bash scripts/restore.sh {{ args.db }} {{ args.fs }}
+          bash scripts/restore.sh ${{ args.db }} ${{ args.fs }}
+
+  odoo:
+    tasks:
+      add-langs:
+        help: Load languages into an existing DB and refresh translations
+        args:
+          langs:
+            help: Comma-separated codes (e.g. es_ES,pt_BR,fr_FR)
+            required: true
+            type: string
+        run: |
+          sugar compose exec --service odoo \
+            --cmd "odoo --db_host=db --db_user=${POSTGRES_USER} --db_password=${POSTGRES_PASSWORD} -d ${POSTGRES_DB} -u all --stop-after-init --load-language=${{ args.langs }}"
+
+      l10n-install:
+        help: Install accounting + country l10n module(s)
+        args:
+          modules:
+            help: Comma-separated modules (e.g. account,l10n_fr)
+            required: true
+            type: string
+        run: |
+          sugar compose exec --service odoo \
+            --cmd "odoo -d ${POSTGRES_DB} -i ${{ args.modules }} --without-demo=all --stop-after-init"
+
+      l10n-apply:
+        help: Set company country and load chart (headless)
+        args:
+          country-code:
+            help: base.xx code (e.g. base.fr, base.br, base.ch)
+            required: true
+            type: string
+          l10n-modules:
+            help: Comma-separated modules to ensure installed (e.g. account,l10n_fr)
+            required: true
+            type: string
+        run: |
+          set -ex
+          sugar compose exec --service odoo \
+            --cmd "python3 /mnt/extra-addons/apply_l10n.py /etc/odoo/odoo.conf ${POSTGRES_DB} ${{ args.country_code }} ${{ args.l10n_modules }}"
+
+      install-app:
+        help: Install an app by technical name (comma-separated allowed)
+        args:
+          modules:
+            help: e.g. dental_hospital or sale,stock
+            required: true
+            type: string
+        run: |
+          sugar compose exec --service odoo \
+            --cmd "odoo -d ${POSTGRES_DB} -i ${{ args.modules }} --without-demo=all --stop-after-init"
 
 scheduler:
   daily-backup:

@@ -3,7 +3,7 @@ name: odoo-stack-ci
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   up-down:
